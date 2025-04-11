@@ -180,7 +180,9 @@ def main():
                             draw_msg = {
                                 "type": "draw",
                                 "player_id": player_id,
-                                "mouse_pos": (mx, my)
+                                "mouse_pos": (mx, my),
+                                "row": tile_r,
+                                "col": tile_c
                             }
                             # Could limit frequency here if you want
                             client_socket.send(pickle.dumps(draw_msg))

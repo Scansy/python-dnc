@@ -35,26 +35,29 @@ def handle_client(conn, player_id):
 
             # 1) Partial draws
             if msg["type"] == "draw":
+                r, c = msg["row"], msg["col"]
+                board_locks[r][c].acquire()
                 broadcast(msg)
 
             # 2) Final scribble claims
             elif msg["type"] == "scribble":
                 r, c, fill_pct = msg["row"], msg["col"], msg["fill"]
                 # Lock the tile to prevent race conditions
-                with board_locks[r][c]:
-                    is_tile_emtpy = board[r][c] is None
-                    is_above_fill_threshold = fill_pct >= FILL_THRESHOLD
-                    if is_tile_emtpy and is_above_fill_threshold:
-                        board[r][c] = player_id
-                        update_msg = {"type": "update", "board": board}
-                        broadcast(update_msg)
-                        print("board claimed")
-                    else:
-                        # Clear tile if fill percentage < 50%
-                        board[r][c] = None
-                        reset_msg = {"type": "reset", "row": r, "col": c}
-                        broadcast(reset_msg)
-                        print("is board none: ", board[r][c] is None)
+                is_tile_emtpy = board[r][c] is None
+                is_above_fill_threshold = fill_pct >= FILL_THRESHOLD
+                if is_tile_emtpy and is_above_fill_threshold:
+                    board[r][c] = player_id
+                    update_msg = {"type": "update", "board": board}
+                    broadcast(update_msg)
+                    print("board claimed")
+                else:
+                    # Clear tile if fill percentage < 50%
+                    board[r][c] = None
+                    reset_msg = {"type": "reset", "row": r, "col": c}
+                    broadcast(reset_msg)
+                    print("is board none: ", board[r][c] is None)
+                # Release the lock
+                board_locks[r][c].release()
 
         except Exception as e:
             print(f"Server error with player {player_id}: {e}")
