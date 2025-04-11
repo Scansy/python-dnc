@@ -190,9 +190,12 @@ def main():
                     mx, my = pygame.mouse.get_pos()
                     tile_r, tile_c = start_tile
                     if tile_r is not None and tile_c is not None:
-                        # If the tile just got claimed by someone else, stop scribbling
-                        if (tile_r, tile_c) in is_being_claimed and board[tile_r][tile_c] is None:
-                            continue
+                        is_tile_being_claimed = (tile_r, tile_c) in is_being_claimed
+                        is_tile_unclaimed = board[tile_r][tile_c] is None
+                        is_not_our_claiming_tile = (tile_r, tile_c) != start_tile
+
+                        if is_tile_being_claimed and is_not_our_claiming_tile and is_tile_unclaimed:
+                            continue #stop scribbling
 
                         tile_x = tile_c * SQUARE_SIZE
                         tile_y = tile_r * SQUARE_SIZE
