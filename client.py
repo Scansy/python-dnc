@@ -86,6 +86,11 @@ def network_listener():
                 # draw on network_scribble_surface
                 pygame.draw.circle(network_scribble_surface, other_color, (mx, my), 3)
 
+            # 4) reset a tile
+            elif msg["type"] == "reset":
+                r, c = msg["row"], msg["col"]
+                board[r][c] = None
+
         except Exception as e:
             print("Network listener error:", e)
             break

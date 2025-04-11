@@ -33,7 +33,6 @@ def handle_client(conn, player_id):
 
             # 1) Partial draws
             if msg["type"] == "draw":
-                # Just broadcast to all, so other clients see the scribble
                 broadcast(msg)
 
             # 2) Final scribble claims
@@ -45,6 +44,11 @@ def handle_client(conn, player_id):
                         board[r][c] = player_id
                         update_msg = {"type": "update", "board": board}
                         broadcast(update_msg)
+                    else:
+                        # Reset tile and broadcast the reset state
+                        board[r][c] = None
+                        reset_msg = {"type": "reset", "row": r, "col": c}
+                        broadcast(reset_msg)
 
         except Exception as e:
             print(f"Server error with player {player_id}: {e}")
