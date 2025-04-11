@@ -110,6 +110,7 @@ def network_listener():
 
                 # Remove reset tile from is_being_claimed
                 if (r, c) in is_being_claimed:
+                    print(f"Tile ({r},{c}) reset, removing from is_being_claimed")
                     is_being_claimed.remove((r, c))
 
                 # Clear the network scribbles for this specific tile
@@ -181,6 +182,10 @@ def main():
 
                     local_scribble_surface.fill((0, 0, 0, 0))
                     scribble_cells.clear()
+                    
+                    # Make sure that current tile is not in is_being_claimed in client-side too
+                    if (tile_r, tile_c) in is_being_claimed:
+                        is_being_claimed.remove((tile_r, tile_c))
 
                 scribbling = False
                 start_tile = (None, None)
