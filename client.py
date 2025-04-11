@@ -37,6 +37,9 @@ scribbling = False
 scribble_cells = []
 start_tile = (None, None)
 
+# Track which tiles other players are currently scribbling on
+is_being_claimed = set()
+
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect((HOST_IP, PORT))
 
@@ -59,7 +62,7 @@ def draw_board():
             pygame.draw.rect(screen, BLACK, (x, y, SQUARE_SIZE, SQUARE_SIZE), 1)
 
 def network_listener():
-    global board
+    global board, is_being_claimed
     while True:
         try:
             data = client_socket.recv(4096)
@@ -67,33 +70,53 @@ def network_listener():
                 break
             msg = pickle.loads(data)
 
-            # 1) init message (only once)
+            # 1) init message
             if msg["type"] == "init":
                 pass
 
-            # 2) update board when tile is claimed
+            # 2) update board when tile is definitively claimed
             elif msg["type"] == "update":
                 board = msg["board"]
-                # Clear network scribbles if you want the final tile color to show
-                network_scribble_surface.fill((0,0,0,0))
+                # The tile is now owned, remove it from is_being_claimed
+                # (We don't know exactly which tile(s) changed, 
+                # so re-check the entire set)
+                still_being_claimed = set()
+                for (r_claim, c_claim) in is_being_claimed:
+                    # If now owned, remove it from being_claimed
+                    if board[r_claim][c_claim] is None:
+                        still_being_claimed.add((r_claim, c_claim))
+                is_being_claimed = still_being_claimed
+
+                # Clear network scribbles for a cleaner look
+                network_scribble_surface.fill((0, 0, 0, 0))
 
             # 3) partial draws from other players
             elif msg["type"] == "draw":
                 other_color = PLAYER_COLORS[msg["player_id"]]
                 mx, my = msg["mouse_pos"]
-                # draw on network_scribble_surface
+                r, c = msg["row"], msg["col"]
+
+                # Mark that tile as being claimed (if nobody owns it yet)
+                if board[r][c] is None:
+                    is_being_claimed.add((r, c))
+
+                # Draw on network_scribble_surface
                 pygame.draw.circle(network_scribble_surface, other_color, (mx, my), 3)
 
             # 4) reset a tile
             elif msg["type"] == "reset":
                 r, c = msg["row"], msg["col"]
                 board[r][c] = None
+
+                # Remove reset tile from is_being_claimed
+                if (r, c) in is_being_claimed:
+                    is_being_claimed.remove((r, c))
+
                 # Clear the network scribbles for this specific tile
                 tile_x = c * SQUARE_SIZE
                 tile_y = r * SQUARE_SIZE
-                # Create a transparent rectangle to clear just this tile
-                pygame.draw.rect(network_scribble_surface, (0,0,0,0), 
-                                 (tile_x, tile_y, SQUARE_SIZE, SQUARE_SIZE))
+                tile_rect = pygame.Rect(tile_x, tile_y, SQUARE_SIZE, SQUARE_SIZE)
+                network_scribble_surface.fill((0, 0, 0, 0), tile_rect)
 
         except Exception as e:
             print("Network listener error:", e)
@@ -102,28 +125,26 @@ def network_listener():
 def main():
     global board, player_id, scribbling, start_tile
 
-    # 1) Receive init data
+    # Receive init data from server
     init_data = client_socket.recv(4096)
     init_msg = pickle.loads(init_data)
     if init_msg["type"] == "init":
         player_id = init_msg["player_id"]
         board = init_msg["board"]
 
-    # 2) Start listener thread
+    # Start the listener thread
     threading.Thread(target=network_listener, daemon=True).start()
 
     running = True
     while running:
         clock.tick(60)
-
-        # Draw board
         screen.fill(WHITE)
         draw_board()
 
         # Blit network scribbles first
-        screen.blit(network_scribble_surface, (0,0))
-        # Then your local scribbles on top
-        screen.blit(local_scribble_surface, (0,0))
+        screen.blit(network_scribble_surface, (0, 0))
+        # Blit local scribbles on top
+        screen.blit(local_scribble_surface, (0, 0))
 
         pygame.display.flip()
 
@@ -133,10 +154,14 @@ def main():
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 r, c = get_tile_under_mouse()
+                # 1) Make sure tile is unowned
+                # 2) Make sure no one else is claiming it
+                #    (but do allow if it's the tile we already started)
                 if r is not None and board[r][c] is None:
-                    scribbling = True
-                    scribble_cells.clear()
-                    start_tile = (r, c)
+                    if (r, c) not in is_being_claimed:
+                        scribbling = True
+                        scribble_cells.clear()
+                        start_tile = (r, c)
 
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if scribbling:
@@ -144,8 +169,8 @@ def main():
                     # Calculate fill ratio
                     tile_area = SQUARE_SIZE * SQUARE_SIZE
                     fill_ratio = (len(scribble_cells) / tile_area) * 10
-                    
-                    # Always send scribble message to server, regardless of fill ratio
+
+                    # Send scribble message to server
                     claim_msg = {
                         "type": "scribble",
                         "row": tile_r,
@@ -154,8 +179,7 @@ def main():
                     }
                     client_socket.send(pickle.dumps(claim_msg))
 
-                    # Clear local scribbles
-                    local_scribble_surface.fill((0,0,0,0))
+                    local_scribble_surface.fill((0, 0, 0, 0))
                     scribble_cells.clear()
 
                 scribbling = False
@@ -166,6 +190,10 @@ def main():
                     mx, my = pygame.mouse.get_pos()
                     tile_r, tile_c = start_tile
                     if tile_r is not None and tile_c is not None:
+                        # If the tile just got claimed by someone else, stop scribbling
+                        if (tile_r, tile_c) in is_being_claimed and board[tile_r][tile_c] is None:
+                            continue
+
                         tile_x = tile_c * SQUARE_SIZE
                         tile_y = tile_r * SQUARE_SIZE
                         local_x = mx - tile_x
@@ -176,7 +204,7 @@ def main():
                             pygame.draw.circle(local_scribble_surface, PLAYER_COLORS[player_id], (mx, my), 3)
                             scribble_cells.append((local_x, local_y))
 
-                            # Also broadcast partial draw so others see
+                            # Broadcast partial draw
                             draw_msg = {
                                 "type": "draw",
                                 "player_id": player_id,
@@ -184,7 +212,6 @@ def main():
                                 "row": tile_r,
                                 "col": tile_c
                             }
-                            # Could limit frequency here if you want
                             client_socket.send(pickle.dumps(draw_msg))
 
     pygame.quit()
