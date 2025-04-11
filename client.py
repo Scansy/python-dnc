@@ -21,6 +21,8 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Deny & Conquer - Real-Time Multiplayer")
 clock = pygame.time.Clock()
 
+is_being_claimed = []
+
 # Surfaces
 board = None  # 8×8 array with None or player_id
 player_id = None
@@ -48,6 +50,25 @@ def get_tile_under_mouse():
         return r, c
     return None, None
 
+def is_tile_being_claimed(r, c, exclude_own=False):
+    # Check if any points in is_being_claimed are within this tile
+    tile_x = c * SQUARE_SIZE
+    tile_y = r * SQUARE_SIZE
+    
+    for point in is_being_claimed:
+        point_r = point[1] // SQUARE_SIZE
+        point_c = point[0] // SQUARE_SIZE
+        
+        # If excluding own tile and this is the tile we're working on, skip it
+        if exclude_own and (r, c) == start_tile:
+            continue
+            
+        # If this point is in the specified tile, it's being claimed
+        if point_r == r and point_c == c:
+            return True
+            
+    return False
+
 def draw_board():
     for r in range(ROWS):
         for c in range(COLS):
@@ -59,7 +80,7 @@ def draw_board():
             pygame.draw.rect(screen, BLACK, (x, y, SQUARE_SIZE, SQUARE_SIZE), 1)
 
 def network_listener():
-    global board
+    global board, is_being_claimed
     while True:
         try:
             data = client_socket.recv(4096)
@@ -74,26 +95,43 @@ def network_listener():
             # 2) update board when tile is claimed
             elif msg["type"] == "update":
                 board = msg["board"]
-                # Clear network scribbles if you want the final tile color to show
+                # Clear network scribbles
                 network_scribble_surface.fill((0,0,0,0))
+                
+                # Clear is_being_claimed for the updated tiles
+                # Since they're now owned and not being claimed anymore
+                is_being_claimed = [p for p in is_being_claimed if
+                                   board[p[1] // SQUARE_SIZE][p[0] // SQUARE_SIZE] is None]
 
             # 3) partial draws from other players
             elif msg["type"] == "draw":
-                other_color = PLAYER_COLORS[msg["player_id"]]
-                mx, my = msg["mouse_pos"]
-                # draw on network_scribble_surface
-                pygame.draw.circle(network_scribble_surface, other_color, (mx, my), 3)
+                other_player = msg["player_id"]
+                if other_player != player_id:  # Only process draws from other players
+                    mx, my = msg["mouse_pos"]
+                    r, c = msg["row"], msg["col"]
+                    
+                    # draw on network_scribble_surface
+                    other_color = PLAYER_COLORS[other_player]
+                    pygame.draw.circle(network_scribble_surface, other_color, (mx, my), 3)
+                    
+                    # Add to is_being_claimed
+                    is_being_claimed.append((mx, my))
 
             # 4) reset a tile
             elif msg["type"] == "reset":
                 r, c = msg["row"], msg["col"]
                 board[r][c] = None
+                
                 # Clear the network scribbles for this specific tile
+                tile_rect = pygame.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                network_scribble_surface.fill((0,0,0,0), tile_rect)
+                
+                # Remove all points in this tile from is_being_claimed
                 tile_x = c * SQUARE_SIZE
                 tile_y = r * SQUARE_SIZE
-                # Create a transparent rectangle to clear just this tile
-                pygame.draw.rect(network_scribble_surface, (0,0,0,0), 
-                                 (tile_x, tile_y, SQUARE_SIZE, SQUARE_SIZE))
+                is_being_claimed = [p for p in is_being_claimed if
+                                   not (tile_y <= p[1] < tile_y + SQUARE_SIZE and
+                                        tile_x <= p[0] < tile_x + SQUARE_SIZE)]
 
         except Exception as e:
             print("Network listener error:", e)
@@ -133,7 +171,19 @@ def main():
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 r, c = get_tile_under_mouse()
-                if r is not None and board[r][c] is None:
+                
+                # Check if this tile is allowed to be claimed
+                # A tile can be claimed if:
+                # 1. It's not already owned by a player
+                # 2. No other player is currently trying to claim it
+                # 3. OR this is the tile the player is already working on
+                allowed_to_claim = (
+                    r is not None and 
+                    board[r][c] is None and 
+                    not is_tile_being_claimed(r, c, exclude_own=True)
+                )
+                
+                if allowed_to_claim:
                     scribbling = True
                     scribble_cells.clear()
                     start_tile = (r, c)
