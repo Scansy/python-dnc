@@ -41,7 +41,9 @@ def handle_client(conn, player_id):
                 r, c, fill_pct = msg["row"], msg["col"], msg["fill"]
                 # Lock the tile to prevent race conditions
                 with board_locks[r][c]:
-                    if board[r][c] is None and fill_pct >= 0.05:
+                    is_tile_emtpy = board[r][c] is None
+                    is_above_fill_threshold = fill_pct >= 0.5
+                    if is_tile_emtpy and is_above_fill_threshold:
                         board[r][c] = player_id
                         update_msg = {"type": "update", "board": board}
                         broadcast(update_msg)
