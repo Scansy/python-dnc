@@ -3,7 +3,7 @@ import threading
 import pickle
 import time
 
-HOST = '127.0.0.1'
+HOST_IP = '10.0.0.8'
 PORT = 5555
 MAX_PLAYERS = 3
 FILL_THRESHOLD = 0.5
@@ -48,14 +48,12 @@ def handle_client(conn, player_id):
                         board[r][c] = player_id
                         update_msg = {"type": "update", "board": board}
                         broadcast(update_msg)
-                        print("fill_pct: ", fill_pct)
                         print("board claimed")
                     else:
                         # Clear tile if fill percentage < 50%
                         board[r][c] = None
                         reset_msg = {"type": "reset", "row": r, "col": c}
                         broadcast(reset_msg)
-                        print("board reset, fill_pct: ", fill_pct)
                         print("is board none: ", board[r][c] is None)
 
         except Exception as e:
@@ -80,9 +78,9 @@ def end_game():
 
 def main():
     global player_count
-    print(f"Server listening on {HOST}:{PORT}")
+    print(f"Server listening on {HOST_IP}:{PORT}")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((HOST, PORT))
+    s.bind((HOST_IP, PORT))
     s.listen()
 
     while player_count < MAX_PLAYERS:

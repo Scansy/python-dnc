@@ -2,6 +2,7 @@ import pygame
 import socket
 import pickle
 import threading
+from server import HOST_IP, PORT
 
 WIDTH, HEIGHT = 800, 800
 ROWS, COLS = 8, 8
@@ -14,9 +15,6 @@ PLAYER_COLORS = [
     (0, 0, 255),   # P1 = Blue
     (0, 200, 0)    # P2 = Green
 ]
-
-HOST = '127.0.0.1'
-PORT = 5555
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -40,7 +38,7 @@ scribble_cells = []
 start_tile = (None, None)
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((HOST, PORT))
+client_socket.connect((HOST_IP, PORT))
 
 def get_tile_under_mouse():
     mx, my = pygame.mouse.get_pos()
