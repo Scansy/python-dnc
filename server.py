@@ -1,6 +1,7 @@
 import socket
 import threading
 import pickle
+import time
 
 HOST = '127.0.0.1'
 PORT = 5555
@@ -40,21 +41,38 @@ def handle_client(conn, player_id):
                 r, c, fill_pct = msg["row"], msg["col"], msg["fill"]
                 # Lock the tile to prevent race conditions
                 with board_locks[r][c]:
-                    if board[r][c] is None and fill_pct >= 0.5:
+                    if board[r][c] is None and fill_pct >= 0.05:
                         board[r][c] = player_id
                         update_msg = {"type": "update", "board": board}
                         broadcast(update_msg)
+                        print("board claimed")
                     else:
-                        # Reset tile and broadcast the reset state
+                        # Clear tile if fill percentage < 50%
                         board[r][c] = None
                         reset_msg = {"type": "reset", "row": r, "col": c}
                         broadcast(reset_msg)
+                        print("board reset, fill_pct: ", fill_pct)
+                        print("is board none: ", board[r][c] is None)
 
         except Exception as e:
             print(f"Server error with player {player_id}: {e}")
             break
 
     conn.close()
+
+def end_game():
+    # Count tiles for each player
+    tile_count = {}
+    for r in range(8):
+        for c in range(8):
+            owner = board[r][c]
+            if owner is not None:
+                tile_count[owner] = tile_count.get(owner, 0) + 1
+
+    # Determine winner
+    winner = max(tile_count, key=tile_count.get) if tile_count else None
+    result_msg = {"type": "victory", "winner": winner, "tile_count": tile_count}
+    broadcast(result_msg)
 
 def main():
     global player_count
@@ -71,6 +89,13 @@ def main():
         player_count += 1
 
     print("Server is now full. Running game...")
+
+    # Start a 60-second timer, then end the game
+    threading.Timer(60.0, end_game).start()
+
+    # Keep the server running here
+    while True:
+        time.sleep(1)  # Simple idle loop to keep main thread alive
 
 if __name__ == '__main__':
     main()

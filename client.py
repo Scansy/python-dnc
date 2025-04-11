@@ -90,6 +90,12 @@ def network_listener():
             elif msg["type"] == "reset":
                 r, c = msg["row"], msg["col"]
                 board[r][c] = None
+                # Clear the network scribbles for this specific tile
+                tile_x = c * SQUARE_SIZE
+                tile_y = r * SQUARE_SIZE
+                # Create a transparent rectangle to clear just this tile
+                pygame.draw.rect(network_scribble_surface, (0,0,0,0), 
+                                 (tile_x, tile_y, SQUARE_SIZE, SQUARE_SIZE))
 
         except Exception as e:
             print("Network listener error:", e)
