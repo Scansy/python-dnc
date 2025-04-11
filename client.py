@@ -145,7 +145,7 @@ def main():
                     tile_r, tile_c = start_tile
                     # Calculate fill ratio
                     tile_area = SQUARE_SIZE * SQUARE_SIZE
-                    fill_ratio = len(scribble_cells) / tile_area
+                    fill_ratio = (len(scribble_cells) / tile_area) * 10
                     
                     # Always send scribble message to server, regardless of fill ratio
                     claim_msg = {

@@ -6,6 +6,7 @@ import time
 HOST = '127.0.0.1'
 PORT = 5555
 MAX_PLAYERS = 3
+FILL_THRESHOLD = 0.5
 
 # 8×8 board. None means unclaimed
 board = [[None for _ in range(8)] for _ in range(8)]
@@ -42,11 +43,12 @@ def handle_client(conn, player_id):
                 # Lock the tile to prevent race conditions
                 with board_locks[r][c]:
                     is_tile_emtpy = board[r][c] is None
-                    is_above_fill_threshold = fill_pct >= 0.5
+                    is_above_fill_threshold = fill_pct >= FILL_THRESHOLD
                     if is_tile_emtpy and is_above_fill_threshold:
                         board[r][c] = player_id
                         update_msg = {"type": "update", "board": board}
                         broadcast(update_msg)
+                        print("fill_pct: ", fill_pct)
                         print("board claimed")
                     else:
                         # Clear tile if fill percentage < 50%
