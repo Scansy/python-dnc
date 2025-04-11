@@ -140,15 +140,15 @@ def main():
                     # Calculate fill ratio
                     tile_area = SQUARE_SIZE * SQUARE_SIZE
                     fill_ratio = len(scribble_cells) / tile_area
-                    if fill_ratio >= 0.5:
-                        # Send claim to server
-                        claim_msg = {
-                            "type": "scribble",
-                            "row": tile_r,
-                            "col": tile_c,
-                            "fill": fill_ratio
-                        }
-                        client_socket.send(pickle.dumps(claim_msg))
+                    
+                    # Always send scribble message to server, regardless of fill ratio
+                    claim_msg = {
+                        "type": "scribble",
+                        "row": tile_r,
+                        "col": tile_c,
+                        "fill": fill_ratio
+                    }
+                    client_socket.send(pickle.dumps(claim_msg))
 
                     # Clear local scribbles
                     local_scribble_surface.fill((0,0,0,0))
