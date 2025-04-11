@@ -59,7 +59,7 @@ def draw_board():
             pygame.draw.rect(screen, BLACK, (x, y, SQUARE_SIZE, SQUARE_SIZE), 1)
 
 def network_listener():
-    global board
+    global board, scribbling
     while True:
         try:
             data = client_socket.recv(4096)
@@ -74,8 +74,10 @@ def network_listener():
             # 2) update board when tile is claimed
             elif msg["type"] == "update":
                 board = msg["board"]
-                # Clear network scribbles if you want the final tile color to show
+                # Clear both local and network scribbles to immediately show the claim
                 network_scribble_surface.fill((0,0,0,0))
+                local_scribble_surface.fill((0,0,0,0))
+                scribble_cells.clear()
 
             # 3) partial draws from other players
             elif msg["type"] == "draw":
@@ -87,20 +89,58 @@ def network_listener():
             # 4) reset a tile
             elif msg["type"] == "reset":
                 r, c = msg["row"], msg["col"]
+                # If we were scribbling on this tile, stop
+                if scribbling and start_tile == (r, c):
+                    scribbling = False
+                    start_tile = (None, None)
+                
+                # Clear both local and network scribbles for this tile
+                tile_rect = pygame.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                local_scribble_surface.fill((0,0,0,0), tile_rect)
+                network_scribble_surface.fill((0,0,0,0), tile_rect)
+                scribble_cells.clear()
+                
+                # Update board state
                 board[r][c] = None
-                # Clear the network scribbles for this specific tile
-                tile_x = c * SQUARE_SIZE
-                tile_y = r * SQUARE_SIZE
-                # Create a transparent rectangle to clear just this tile
-                pygame.draw.rect(network_scribble_surface, (0,0,0,0), 
-                                 (tile_x, tile_y, SQUARE_SIZE, SQUARE_SIZE))
+
+            # 5) Add victory message handling
+            elif msg["type"] == "victory":
+                winner = msg["winner"]
+                tile_count = msg["tile_count"]
+                
+                # Create victory screen
+                screen.fill((0, 0, 0))
+                font = pygame.font.SysFont(None, 64)
+                
+                if winner is not None:
+                    color = PLAYER_COLORS[winner]
+                    text = font.render(f"Player {winner} Wins!", True, color)
+                else:
+                    text = font.render("Game Over - Tie!", True, WHITE)
+                    
+                screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//3))
+                
+                # Show score
+                y_pos = HEIGHT//2
+                for player, score in tile_count.items():
+                    score_text = font.render(f"Player {player}: {score} tiles", True, PLAYER_COLORS[player])
+                    screen.blit(score_text, (WIDTH//2 - score_text.get_width()//2, y_pos))
+                    y_pos += 60
+                
+                pygame.display.flip()
+                
+                # Wait for 5 seconds then quit
+                pygame.time.wait(5000)
+                global running
+                running = False
 
         except Exception as e:
             print("Network listener error:", e)
             break
 
 def main():
-    global board, player_id, scribbling, start_tile
+    global board, player_id, scribbling, start_tile, running
+    running = True
 
     # 1) Receive init data
     init_data = client_socket.recv(4096)
@@ -112,7 +152,6 @@ def main():
     # 2) Start listener thread
     threading.Thread(target=network_listener, daemon=True).start()
 
-    running = True
     while running:
         clock.tick(60)
 
@@ -137,6 +176,10 @@ def main():
                     scribbling = True
                     scribble_cells.clear()
                     start_tile = (r, c)
+                    
+                    # Clear any previous scribbles on this tile
+                    tile_rect = pygame.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                    local_scribble_surface.fill((0,0,0,0), tile_rect)
 
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if scribbling:
@@ -145,7 +188,7 @@ def main():
                     tile_area = SQUARE_SIZE * SQUARE_SIZE
                     fill_ratio = (len(scribble_cells) / tile_area) * 10
                     
-                    # Always send scribble message to server, regardless of fill ratio
+                    # Always send scribble message to server
                     claim_msg = {
                         "type": "scribble",
                         "row": tile_r,
@@ -153,11 +196,11 @@ def main():
                         "fill": fill_ratio
                     }
                     client_socket.send(pickle.dumps(claim_msg))
-
-                    # Clear local scribbles
-                    local_scribble_surface.fill((0,0,0,0))
-                    scribble_cells.clear()
-
+                    
+                    # Don't clear scribbles yet - wait for server confirmation
+                    # This helps players understand the server is processing their claim
+                    # The server will send either "update" or "reset" which will clear scribbles
+                
                 scribbling = False
                 start_tile = (None, None)
 
