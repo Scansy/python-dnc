@@ -92,12 +92,12 @@ def network_listener():
 
             # 3) partial draws from other players
             elif msg["type"] == "draw":
-                other_color = PLAYER_COLORS[msg["player_id"]]
+                other_pid = msg["player_id"]
                 mx, my = msg["mouse_pos"]
                 r, c = msg["row"], msg["col"]
 
                 # Mark that tile as being claimed (if nobody owns it yet)
-                if board[r][c] is None:
+                if other_pid != player_id and board[r][c] is None:
                     is_being_claimed.add((r, c))
 
                 # Draw on network_scribble_surface
@@ -157,11 +157,10 @@ def main():
                 # 1) Make sure tile is unowned
                 # 2) Make sure no one else is claiming it
                 #    (but do allow if it's the tile we already started)
-                if r is not None and board[r][c] is None:
-                    if (r, c) not in is_being_claimed:
-                        scribbling = True
-                        scribble_cells.clear()
-                        start_tile = (r, c)
+                if (r, c) not in is_being_claimed or (r, c) == start_tile:
+                            scribbling = True
+                            scribble_cells.clear()
+                            start_tile = (r, c)
 
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if scribbling:
