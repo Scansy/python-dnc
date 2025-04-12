@@ -18,7 +18,7 @@ player_count = 0
 
 
 # Send a message to all clients
-def broadcast(message)
+def broadcast(message): 
     data = pickle.dumps(message)
     for c in clients:
         c.send(data)
