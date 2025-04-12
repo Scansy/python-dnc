@@ -73,6 +73,7 @@ def handle_client(conn, player_id):
     conn.close()
 
 def end_game():
+    print("game ended")
     # Count tiles for each player
     tile_count = {}
     for r in range(8):
@@ -91,7 +92,7 @@ def main():
     print(f"Server listening on {HOST_IP}:{PORT}")
     # Create a TCP Socket for the server.
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Bind the Socket to an the IP and port, in this case, SFU Surrey’s IP
+    # Bind the Socket to an the IP and port, in this case, SFU Surrey's IP
     # address, and our chosen port 5555.
     s.bind((HOST_IP, PORT))
     # Start listening to incoming connections to the IP and Port
@@ -106,8 +107,11 @@ def main():
 
     print("Server is now full. Running game...")
 
-    # Start a 60-second timer, then end the game
-    threading.Timer(60.0, end_game).start()
+    # Start a timer, then end the game
+    print("Starting game timer (10 seconds)...")
+    game_timer = threading.Timer(10.0, end_game)
+    game_timer.daemon = False  # Make it a non-daemon thread so it won't be terminated prematurely
+    game_timer.start()
 
     # Keep the server running here
     while True:
