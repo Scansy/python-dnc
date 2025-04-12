@@ -3,7 +3,7 @@ import threading
 import pickle
 import time
 
-HOST_IP = '10.0.0.8'
+HOST_IP = '10.0.0.28'
 PORT = 5555
 MAX_PLAYERS = 3
 FILL_THRESHOLD = 0.5

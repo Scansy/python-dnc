@@ -221,6 +221,9 @@ def main():
                         local_x = mx - tile_x
                         local_y = my - tile_y
 
+                        if is_tile_being_claimed(tile_r, tile_c, exclude_own=True):
+                            continue  # Skip drawing if the tile is being claimed
+
                         if 0 <= local_x < SQUARE_SIZE and 0 <= local_y < SQUARE_SIZE:
                             # Draw locally
                             pygame.draw.circle(local_scribble_surface, PLAYER_COLORS[player_id], (mx, my), 3)
