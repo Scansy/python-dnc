@@ -16,7 +16,9 @@ board_locks = [[threading.Lock() for _ in range(8)] for _ in range(8)]
 clients = []
 player_count = 0
 
-def broadcast(message):
+
+# Send a message to all clients
+def broadcast(message)
     data = pickle.dumps(message)
     for c in clients:
         c.send(data)
@@ -87,8 +89,12 @@ def end_game():
 def main():
     global player_count
     print(f"Server listening on {HOST_IP}:{PORT}")
+    # Create a TCP Socket for the server.
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Bind the Socket to an the IP and port, in this case, SFU Surrey’s IP
+    # address, and our chosen port 5555.
     s.bind((HOST_IP, PORT))
+    # Start listening to incoming connections to the IP and Port
     s.listen()
 
     while player_count < MAX_PLAYERS:
@@ -109,4 +115,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

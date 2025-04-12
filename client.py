@@ -40,7 +40,11 @@ start_tile = (None, None)
 # Track which tiles other players are currently scribbling on
 is_being_claimed = set()
 
+
+# Create a TCP socket for the client
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Connect the client socket to the server using the same IP address and 
+# Port number
 client_socket.connect((HOST_IP, PORT))
 
 def get_tile_under_mouse():
@@ -51,6 +55,8 @@ def get_tile_under_mouse():
         return r, c
     return None, None
 
+
+# Draw the board
 def draw_board():
     for r in range(ROWS):
         for c in range(COLS):
@@ -228,4 +234,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
