@@ -87,6 +87,13 @@ def end_game():
     result_msg = {"type": "victory", "winner": winner, "tile_count": tile_count}
     broadcast(result_msg)
 
+def timer_function():
+    print("Timer thread started")
+    time.sleep(1)  # Wait for 1 second
+    print("Timer expired, calling end_game()")
+    end_game()
+    print("end_game() completed")
+
 def main():
     global player_count
     print(f"Server listening on {HOST_IP}:{PORT}")
@@ -99,6 +106,7 @@ def main():
     s.listen()
 
     game_timer_started = False
+    game_timer_thread = None
     
     while player_count < MAX_PLAYERS:
         conn, addr = s.accept()
@@ -109,16 +117,23 @@ def main():
         
         # Start the game timer when we have 2 players
         if player_count == 2 and not game_timer_started:
-            print("Two players connected. Starting game timer (10 seconds)...")
-            game_timer = threading.Timer(10.0, end_game)
-            game_timer.daemon = False  # Make it a non-daemon thread so it won't be terminated prematurely
-            game_timer.start()
-            game_timer_started = True
+            print("Two players connected. Creating game timer thread...")
+            try:
+                game_timer_thread = threading.Thread(target=timer_function)
+                game_timer_thread.daemon = False  # Make it a non-daemon thread
+                print("About to start timer thread...")
+                game_timer_thread.start()
+                print(f"Game timer thread started successfully. Thread is alive: {game_timer_thread.is_alive()}")
+                game_timer_started = True
+            except Exception as timer_error:
+                print(f"Error with game timer: {timer_error}")
 
     print("Server is now full. Running game...")
 
     # Keep the server running here
     while True:
+        if game_timer_thread:
+            print(f"Main loop - Timer thread alive: {game_timer_thread.is_alive()}")
         time.sleep(1)  # Simple idle loop to keep main thread alive
 
 if __name__ == '__main__':
