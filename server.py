@@ -98,20 +98,24 @@ def main():
     # Start listening to incoming connections to the IP and Port
     s.listen()
 
+    game_timer_started = False
+    
     while player_count < MAX_PLAYERS:
         conn, addr = s.accept()
         print(f"Player {player_count} connected from {addr}")
         clients.append(conn)
         threading.Thread(target=handle_client, args=(conn, player_count), daemon=True).start()
         player_count += 1
+        
+        # Start the game timer when we have 2 players
+        if player_count == 2 and not game_timer_started:
+            print("Two players connected. Starting game timer (10 seconds)...")
+            game_timer = threading.Timer(10.0, end_game)
+            game_timer.daemon = False  # Make it a non-daemon thread so it won't be terminated prematurely
+            game_timer.start()
+            game_timer_started = True
 
     print("Server is now full. Running game...")
-
-    # Start a timer, then end the game
-    print("Starting game timer (10 seconds)...")
-    game_timer = threading.Timer(10.0, end_game)
-    game_timer.daemon = False  # Make it a non-daemon thread so it won't be terminated prematurely
-    game_timer.start()
 
     # Keep the server running here
     while True:
