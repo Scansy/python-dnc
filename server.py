@@ -88,24 +88,44 @@ def main():
     global player_count
     print(f"Server listening on {HOST_IP}:{PORT}")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((HOST_IP, PORT))
-    s.listen()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        s.bind((HOST_IP, PORT))
+        s.listen()
 
-    while player_count < MAX_PLAYERS:
-        conn, addr = s.accept()
-        print(f"Player {player_count} connected from {addr}")
-        clients.append(conn)
-        threading.Thread(target=handle_client, args=(conn, player_count), daemon=True).start()
-        player_count += 1
+        while player_count < MAX_PLAYERS:
+            conn, addr = s.accept()
+            print(f"Player {player_count} connected from {addr}")
+            clients.append(conn)
+            threading.Thread(target=handle_client, args=(conn, player_count), daemon=True).start()
+            player_count += 1
 
-    print("Server is now full. Running game...")
+        print("Server is now full. Running game...")
 
-    # Start a 60-second timer, then end the game
-    threading.Timer(60.0, end_game).start()
+        # Start a 60-second timer, then end the game
+        game_timer = threading.Timer(60.0, end_game)
+        game_timer.start()
 
-    # Keep the server running here
-    while True:
-        time.sleep(1)  # Simple idle loop to keep main thread alive
+        # Keep the server running here
+        while True:
+            time.sleep(1)  # Simple idle loop to keep main thread alive
+    except KeyboardInterrupt:
+        print("\nShutting down server...")
+    finally:
+        # Cleanup
+        print("Cleaning up connections...")
+        for client in clients:
+            try:
+                client.shutdown(socket.SHUT_RDWR)
+            except:
+                pass
+            client.close()
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        s.close()
+        print("Server shutdown complete.")
 
 if __name__ == '__main__':
     main()
